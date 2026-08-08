@@ -91,3 +91,75 @@ The API was tested locally through Swagger UI. The health endpoint returned HTTP
 - GET /health returned 200 OK.
 - POST /api/interview returned 200 OK for session initialization.
 - Continuing the same sessionId returned 200 OK.
+
+## Entry 04 — Read-Only Curriculum and Candidate Data Loader
+
+### AI Tool
+Codex
+
+### Prompt
+Implement the next small feature: read-only loaders for the official
+curriculum and candidate data.
+
+First inspect:
+- data/curriculum.json
+- data/candidates.json
+
+Use their ACTUAL schemas. Do not guess or invent fields.
+
+Create a small data-loading module that:
+1. Loads curriculum.json.
+2. Loads candidates.json.
+3. Provides typed Python structures/models for the data we will need later.
+4. Allows the interview engine to retrieve:
+   - a candidate by member ID
+   - curriculum information by day
+5. Keeps the original JSON files completely unchanged.
+
+Important:
+- Do NOT implement LLM integration.
+- Do NOT implement question generation.
+- Do NOT implement evaluation or feedback.
+- Do NOT modify the FastAPI endpoint yet unless a minimal import change is
+  absolutely necessary.
+- Do NOT add a database or vector database.
+- Do NOT modify docs/AI_USAGE_LOG.md.
+- Keep the implementation simple and testable.
+
+Before changing files, briefly explain the files you plan to create.
+
+After implementation:
+- Run a small validation/test proving that the loaders can read the
+  supplied JSON files and retrieve a candidate and curriculum day.
+- Report exactly which files were changed/created.
+- Do NOT commit or push anything.
+
+### Implementation Outcome
+Codex inspected the supplied curriculum and candidate JSON files and created:
+
+- `backend/data_loader.py`
+
+The loader provides immutable typed structures for:
+
+- Curriculum root, modules, and daily curriculum entries
+- Candidates and member information
+- Mission history
+- Engagement signals
+
+No changes were made to:
+- `data/curriculum.json`
+- `data/candidates.json`
+- `docs/AI_USAGE_LOG.md`
+- The existing FastAPI endpoint
+
+### Validation
+The implementation was successfully validated:
+
+- PASS: loaded 20 candidates and 31 curriculum days
+- PASS: candidate `CAND-001` = Sarah Johnson
+- PASS: day 7 = Embeddings Explained
+- PASS: `git diff --check`
+
+### Files Changed
+- `backend/data_loader.py` — created
+- `docs/AI_USAGE_LOG.md` — manually updated with this entry
