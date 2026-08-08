@@ -37,8 +37,8 @@ First, inspect the current repository.
 Do NOT create or modify any files yet.
 
 Tell me:
-1. What files currently exist.
-2. Whether the Git repository is correctly detected.
+1. What files currenty exist.
+2. Whether the Git reository is correctly detected.
 3. What you understand about the current project state.
 4. What you recommend as the first backend implementation step.
 
@@ -51,3 +51,43 @@ after reviewing the official API specification.
 
 **Human Decision:**
 Reviewed the recommendation. No code was implemented yet.
+
+## Entry 03 — Initial FastAPI API Skeleton
+
+### AI Tool
+Codex
+
+### Prompt
+Now implement ONLY the initial API skeleton for the ABTalks AI Interview Agent.
+
+First, inspect the official Technical Specification in the data/ directory and use it as the source of truth for the API contract.
+
+Implement only:
+- FastAPI application setup
+- Required POST /api/interview endpoint
+- Request and response models
+- Basic session handling using sessionId
+- Basic request validation
+- Minimal health endpoint for local testing
+
+Do not implement LLM integration, adaptive questioning, curriculum retrieval, candidate personalization, answer evaluation, feedback generation, vector database, RAG, or authentication.
+
+Do not modify data/ or AI_USAGE_LOG.md.
+Do not commit or push anything.
+
+### Outcome
+Codex created the initial FastAPI API skeleton with:
+- POST /api/interview
+- GET /health
+- Typed request/response models
+- In-memory session handling
+- Basic validation
+- FastAPI and Uvicorn dependencies
+
+The API was tested locally through Swagger UI. The health endpoint returned HTTP 200, the interview session initialized successfully, and a second request using the same sessionId returned HTTP 200.
+
+### Validation
+- FastAPI server started successfully.
+- GET /health returned 200 OK.
+- POST /api/interview returned 200 OK for session initialization.
+- Continuing the same sessionId returned 200 OK.
