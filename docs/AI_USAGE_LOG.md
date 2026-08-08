@@ -22,3 +22,32 @@ architecture.
 
 **Outcome:**  
 Established the initial development plan and project structure.
+
+## Entry 02 — Repository Inspection
+
+**Date:** 2026-08-08
+
+**AI Tool:** Codex
+
+**Prompt:**
+> You are helping me develop the ABTalks AI Interview Agent hackathon project.
+
+First, inspect the current repository.
+
+Do NOT create or modify any files yet.
+
+Tell me:
+1. What files currently exist.
+2. Whether the Git repository is correctly detected.
+3. What you understand about the current project state.
+4. What you recommend as the first backend implementation step.
+
+Do not implement anything yet.
+
+**Outcome:**
+Codex inspected the repository, confirmed that Git was correctly
+configured, and recommended starting with a minimal FastAPI service
+after reviewing the official API specification.
+
+**Human Decision:**
+Reviewed the recommendation. No code was implemented yet.
