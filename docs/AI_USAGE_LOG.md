@@ -296,3 +296,71 @@ No supplied data files were modified.
 The FastAPI API was not modified.
 No LLM, vector database, or final feedback system was implemented in
 this step.
+
+## Entry 06 — Adaptive Interview and Candidate-Specific Evaluation
+
+### AI Tool
+
+ChatGPT
+
+### Purpose
+
+Used ChatGPT to extend the deterministic interview planner into an
+adaptive interview system capable of adjusting interview length based
+on candidate performance and generating structured, candidate-specific
+feedback.
+
+### Interaction
+
+ChatGPT helped design and implement:
+
+- adaptive interview length while maintaining a minimum of 8 questions
+- the ability to continue interviews beyond 8 questions for candidates
+  demonstrating strong technical performance
+- answer-quality classification into strong, good, adequate, and brief
+- detection of concrete examples in candidate answers
+- detection of technical reasoning
+- detection of engineering trade-offs
+- identification of strong and weaker curriculum topics
+- personalized final feedback and recommended next steps
+- candidate-specific follow-up and deeper-probing behavior
+- preservation of the deterministic planner as the source of question
+  selection
+- integration of Breeth as a memory/context layer rather than a
+  question generator
+
+### Outcome
+
+The interview agent successfully became adaptive instead of ending at a
+fixed number of questions.
+
+Testing with the supplied CAND-001 candidate demonstrated that a strong
+candidate could progress to 13 questions while covering 8 curriculum
+days.
+
+The final evaluation successfully identified:
+
+- 10 strong answers
+- 3 good answers
+- concrete examples
+- technical reasoning
+- engineering trade-off awareness
+- no major curriculum weakness
+
+The feedback system was also separately validated using a temporary
+testing endpoint before the endpoint was removed from the final API.
+
+### Implementation Impact
+
+The resulting architecture now separates:
+
+1. Candidate and curriculum data loading
+2. Deterministic curriculum-grounded question planning
+3. Adaptive interview progression
+4. Candidate answer analysis
+5. Structured follow-up and deeper probing
+6. Candidate-specific final feedback
+7. Breeth-based interview memory storage
+
+The existing FastAPI interview API and supplied data files were
+preserved.

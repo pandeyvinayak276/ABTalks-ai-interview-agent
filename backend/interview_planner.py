@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 
 from backend.data_loader import Candidate, Curriculum, CurriculumDay
 
-
 MINIMUM_QUESTION_COUNT = 8
+MAXIMUM_QUESTION_COUNT = 13
 MINIMUM_CURRICULUM_DAY_COVERAGE = 4
 DEEPER_PROBE_ATTEMPTS = 3
 
@@ -44,7 +44,8 @@ class InterviewState:
     covered_curriculum_days: set[int] = field(default_factory=set)
     current_question_number: int = 0
     minimum_question_count: int = MINIMUM_QUESTION_COUNT
-    maximum_question_count: int = 10
+    target_question_count: int = MINIMUM_QUESTION_COUNT
+    maximum_question_count: int = MAXIMUM_QUESTION_COUNT
     completed_question_numbers: set[int] = field(default_factory=set)
     is_complete: bool = False
 
@@ -69,27 +70,61 @@ class InterviewPlanner:
         curriculum: Curriculum,
         *,
         minimum_question_count: int = MINIMUM_QUESTION_COUNT,
-        maximum_question_count: int = 10,
+        target_question_count: int | None = None,
+        maximum_question_count: int = MAXIMUM_QUESTION_COUNT,
     ) -> None:
         if minimum_question_count < MINIMUM_QUESTION_COUNT:
-            raise ValueError("minimum_question_count must be at least 8.")
+            raise ValueError(
+                f"minimum_question_count must be at least "
+                f"{MINIMUM_QUESTION_COUNT}."
+            )
+
         if maximum_question_count < minimum_question_count:
-            raise ValueError("maximum_question_count cannot be below the minimum.")
+            raise ValueError(
+                "maximum_question_count cannot be below the minimum."
+            )
+
+        if maximum_question_count > MAXIMUM_QUESTION_COUNT:
+            raise ValueError(
+                f"maximum_question_count cannot exceed "
+                f"{MAXIMUM_QUESTION_COUNT}."
+            )
+
+        target = (
+            target_question_count
+            if target_question_count is not None
+            else minimum_question_count
+        )
+
+        if target < minimum_question_count:
+            raise ValueError(
+                "target_question_count cannot be below the minimum."
+            )
+
+        if target > maximum_question_count:
+            raise ValueError(
+                "target_question_count cannot exceed the maximum."
+            )
 
         self._candidate = candidate
-        self._curriculum_by_day = {item.day: item for item in curriculum.days}
+        self._curriculum_by_day = {
+            item.day: item for item in curriculum.days
+        }
+
         self.state = InterviewState(
             member_id=candidate.member.id,
             minimum_question_count=minimum_question_count,
+            target_question_count=target,
             maximum_question_count=maximum_question_count,
         )
+
         self._core_questions = self._build_core_questions()
         self._follow_up_queue: list[_QuestionTemplate] = []
         self._followed_up_question_numbers: set[int] = set()
 
     @property
     def done(self) -> bool:
-        """Whether the required question and curriculum-day coverage is complete."""
+        """Whether the adaptive interview has reached its target."""
 
         return self.state.is_complete
 
@@ -98,10 +133,15 @@ class InterviewPlanner:
 
         if self.state.is_complete:
             return None
+
+        if len(self.state.asked_questions) >= self.state.target_question_count:
+            return None
+
         if len(self.state.asked_questions) >= self.state.maximum_question_count:
             return None
 
         template = self._next_template()
+
         if template is None:
             return None
 
@@ -115,26 +155,37 @@ class InterviewPlanner:
             is_follow_up=template.is_follow_up,
             follow_up_instruction=template.follow_up_instruction,
         )
+
         self.state.asked_questions.append(question)
         self.state.current_question_number = question.question_number
+
         return question
 
     def complete_question(self, question_number: int) -> bool:
-        """Mark an asked question complete and return the updated completion state."""
+        """Mark an asked question complete and return updated completion state."""
 
         question = next(
-            (item for item in self.state.asked_questions if item.question_number == question_number),
+            (
+                item
+                for item in self.state.asked_questions
+                if item.question_number == question_number
+            ),
             None,
         )
+
         if question is None:
             raise ValueError("Only an asked question can be completed.")
 
         self.state.completed_question_numbers.add(question_number)
         self.state.covered_curriculum_days.add(question.curriculum_day)
+
         self.state.is_complete = (
-            len(self.state.completed_question_numbers) >= self.state.minimum_question_count
-            and len(self.state.covered_curriculum_days) >= MINIMUM_CURRICULUM_DAY_COVERAGE
+            len(self.state.completed_question_numbers)
+            >= self.state.target_question_count
+            and len(self.state.covered_curriculum_days)
+            >= MINIMUM_CURRICULUM_DAY_COVERAGE
         )
+
         return self.state.is_complete
 
     def add_follow_up(
@@ -142,17 +193,20 @@ class InterviewPlanner:
         previous_question_number: int,
         previous_answer_context: str,
     ) -> FollowUpInstruction:
-        """Queue one structured follow-up for an asked core question.
-
-        This deliberately preserves answer context without generating question text.
-        """
+        """Queue one structured follow-up for an asked core question."""
 
         if not previous_answer_context.strip():
             raise ValueError("previous_answer_context must not be blank.")
+
         if self.state.is_complete:
-            raise ValueError("Cannot add a follow-up to a completed interview.")
+            raise ValueError(
+                "Cannot add a follow-up to a completed interview."
+            )
+
         if previous_question_number in self._followed_up_question_numbers:
-            raise ValueError("A follow-up is already queued for this question.")
+            raise ValueError(
+                "A follow-up is already queued for this question."
+            )
 
         previous_question = next(
             (
@@ -162,19 +216,27 @@ class InterviewPlanner:
             ),
             None,
         )
+
         if previous_question is None:
-            raise ValueError("A follow-up requires a previously asked question.")
+            raise ValueError(
+                "A follow-up requires a previously asked question."
+            )
+
         if previous_question.is_follow_up:
-            raise ValueError("Follow-ups may only be added to core questions.")
+            raise ValueError(
+                "Follow-ups may only be added to core questions."
+            )
 
         instruction = FollowUpInstruction(
             previous_question_number=previous_question_number,
             previous_answer_context=previous_answer_context,
             instruction=(
-                "Probe the candidate's explanation for understanding, trade-offs, "
-                "and a concrete example related to the same curriculum objective."
+                "Probe the candidate's explanation for understanding, "
+                "trade-offs, and a concrete example related to the same "
+                "curriculum objective."
             ),
         )
+
         self._follow_up_queue.append(
             _QuestionTemplate(
                 curriculum_day=previous_question.curriculum_day,
@@ -182,18 +244,23 @@ class InterviewPlanner:
                 objective=previous_question.objective,
                 difficulty="follow_up",
                 reason_for_selection=(
-                    f"Follow up on question {previous_question_number} using the "
-                    "candidate's supplied answer context."
+                    f"Follow up on question {previous_question_number} "
+                    "using the candidate's supplied answer context."
                 ),
                 is_follow_up=True,
                 follow_up_instruction=instruction,
             )
         )
+
         self._followed_up_question_numbers.add(previous_question_number)
+
         return instruction
 
-    def advance_turn(self, completed_question_number: int) -> PlannedQuestion | None:
-        """Complete one question and plan the next one for turn-by-turn use."""
+    def advance_turn(
+        self,
+        completed_question_number: int,
+    ) -> PlannedQuestion | None:
+        """Complete one question and plan the next one."""
 
         self.complete_question(completed_question_number)
         return self.next_question()
@@ -203,32 +270,57 @@ class InterviewPlanner:
             return self._follow_up_queue.pop(0)
 
         asked_core_questions = sum(
-            not question.is_follow_up for question in self.state.asked_questions
+            not question.is_follow_up
+            for question in self.state.asked_questions
         )
+
         if asked_core_questions < len(self._core_questions):
             return self._core_questions[asked_core_questions]
+
         return None
 
-    def _build_core_questions(self) -> tuple[_QuestionTemplate, ...]:
-        """Build distinct core questions from completed missions, then curriculum."""
+    def _build_core_questions(
+        self,
+    ) -> tuple[_QuestionTemplate, ...]:
+        """Build enough distinct core questions for the adaptive range."""
 
         templates: list[_QuestionTemplate] = []
         selected_days: set[int] = set()
 
+        # Prioritize completed missions first.
         for mission in self._candidate.missions:
-            if mission.passed is not True or mission.day in selected_days:
+            if mission.passed is not True:
                 continue
+
+            if mission.day in selected_days:
+                continue
+
             curriculum_day = self._curriculum_by_day.get(mission.day)
+
             if curriculum_day is None:
                 continue
-            templates.append(self._mission_template(curriculum_day, mission.attempts, mission.title))
+
+            templates.append(
+                self._mission_template(
+                    curriculum_day,
+                    mission.attempts,
+                    mission.title,
+                )
+            )
+
             selected_days.add(mission.day)
-            if len(templates) == self.state.minimum_question_count:
+
+            if len(templates) >= self.state.maximum_question_count:
                 return tuple(templates)
 
-        for curriculum_day in sorted(self._curriculum_by_day.values(), key=lambda item: item.day):
+        # Fill the remaining slots from the curriculum.
+        for curriculum_day in sorted(
+            self._curriculum_by_day.values(),
+            key=lambda item: item.day,
+        ):
             if curriculum_day.day in selected_days:
                 continue
+
             templates.append(
                 _QuestionTemplate(
                     curriculum_day=curriculum_day.day,
@@ -236,16 +328,25 @@ class InterviewPlanner:
                     objective=_first_objective(curriculum_day),
                     difficulty="core",
                     reason_for_selection=(
-                        "Selected from the supplied curriculum to preserve the required "
-                        "interview breadth after prioritizing completed missions."
+                        "Selected from the supplied curriculum to preserve "
+                        "interview breadth after prioritizing completed "
+                        "missions."
                     ),
                 )
             )
+
             selected_days.add(curriculum_day.day)
-            if len(templates) == self.state.minimum_question_count:
+
+            if len(templates) >= self.state.maximum_question_count:
                 return tuple(templates)
 
-        raise ValueError("The supplied curriculum cannot provide the required eight questions.")
+        if len(templates) < self.state.target_question_count:
+            raise ValueError(
+                "The supplied curriculum cannot provide enough questions "
+                "for the requested interview length."
+            )
+
+        return tuple(templates)
 
     @staticmethod
     def _mission_template(
@@ -255,21 +356,28 @@ class InterviewPlanner:
     ) -> _QuestionTemplate:
         if attempts is not None and attempts >= DEEPER_PROBE_ATTEMPTS:
             difficulty = "deeper_probe"
+
             reason = (
-                f"Candidate completed mission '{mission_title}' in {attempts} attempts; "
-                "this is a deeper-probe opportunity."
+                f"Candidate completed mission '{mission_title}' "
+                f"in {attempts} attempts; this is a deeper-probe "
+                "opportunity."
             )
+
         elif attempts is not None:
             difficulty = "core"
+
             reason = (
-                f"Candidate completed mission '{mission_title}' in {attempts} attempt(s), "
-                "so this curriculum topic is prioritized."
+                f"Candidate completed mission '{mission_title}' "
+                f"in {attempts} attempt(s), so this curriculum topic "
+                "is prioritized."
             )
+
         else:
             difficulty = "core"
+
             reason = (
-                f"Candidate completed mission '{mission_title}', so this curriculum topic "
-                "is prioritized."
+                f"Candidate completed mission '{mission_title}', "
+                "so this curriculum topic is prioritized."
             )
 
         return _QuestionTemplate(
@@ -283,5 +391,8 @@ class InterviewPlanner:
 
 def _first_objective(curriculum_day: CurriculumDay) -> str:
     if not curriculum_day.objectives:
-        raise ValueError(f"Curriculum day {curriculum_day.day} has no objectives.")
+        raise ValueError(
+            f"Curriculum day {curriculum_day.day} has no objectives."
+        )
+
     return curriculum_day.objectives[0]
