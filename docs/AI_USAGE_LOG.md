@@ -30,7 +30,7 @@ Established the initial development plan and project structure.
 **AI Tool:** Codex
 
 **Prompt:**
-> You are helping me develop the ABTalks AI Interview Agent hackathon project.
+ You are helping me develop the ABTalks AI Interview Agent hackathon project.
 
 First, inspect the current repository.
 
