@@ -163,3 +163,136 @@ The implementation was successfully validated:
 ### Files Changed
 - `backend/data_loader.py` — created
 - `docs/AI_USAGE_LOG.md` — manually updated with this entry
+
+## Entry 05 — Deterministic MVP Interview Planner
+
+### AI Tool
+Codex
+
+### Prompt
+Implement the next MVP component: a deterministic interview planner for
+the ABTalks AI Interview Agent.
+
+First inspect:
+- backend/data_loader.py
+- data/curriculum.json
+- data/candidates.json
+- backend/main.py
+
+The planner must personalize an interview using the candidate's actual
+mission history and the curriculum.
+
+Create:
+- backend/interview_planner.py
+
+Requirements:
+
+1. Define an interview state that tracks:
+   - candidate/member ID
+   - asked questions
+   - curriculum days already covered
+   - current question number
+   - maximum/minimum question count
+   - whether the interview is complete
+
+2. The planner must guarantee:
+   - minimum 8 questions
+   - coverage of at least 4 different curriculum days
+   - questions are grounded in curriculum content
+   - no accidental duplicate questions
+   - the interview can be advanced turn-by-turn
+
+3. Personalization:
+   - Prefer curriculum days associated with missions the candidate
+     completed.
+   - Use mission attempts as a difficulty signal.
+   - If a candidate needed multiple attempts, allow the planner to mark
+     that topic as a deeper-probe opportunity.
+   - Do not invent candidate information.
+
+4. Question planning:
+   Implement deterministic planning for the initial/core questions.
+   Each planned question should contain:
+   - question number
+   - curriculum day
+   - curriculum topic/title
+   - objective
+   - difficulty
+   - reason for selection
+   - whether it is a follow-up
+
+5. Follow-ups:
+   The planner must support adding a follow-up question based on the
+   previous answer/context, but it should NOT generate natural-language
+   questions using an LLM yet.
+
+   For now, return a structured follow-up instruction/context that a
+   future LLM layer can use.
+
+6. Completion:
+   The planner must report done=true only after at least 8 questions have
+   been completed AND at least 4 curriculum days have been covered.
+
+7. Keep this component independent:
+   - Do NOT add an LLM.
+   - Do NOT add a vector database.
+   - Do NOT implement final feedback yet.
+   - Do NOT modify the supplied JSON files.
+   - Do NOT rewrite the existing API unless required for a minimal import.
+   - Keep the planner easy to test.
+
+8. Add a small test/validation script or test function proving:
+   - an interview can be initialized for a real candidate from the
+     supplied data
+   - at least 8 questions can be planned
+   - at least 4 different curriculum days are covered
+   - completion is false before the requirements are met and true after
+     they are met
+
+Run the validation and report:
+- files created/modified
+- test results
+- any assumptions
+
+Do NOT commit or push anything.
+
+### Implementation Outcome
+Codex created:
+- `backend/interview_planner.py`
+- `tests/test_interview_planner.py`
+
+The planner now tracks:
+- candidate/member ID
+- questions asked and completed
+- curriculum days covered
+- current question number
+- minimum and maximum question counts
+- interview completion state
+
+The planner prioritizes curriculum days associated with the candidate's
+completed missions and uses mission attempts as a difficulty signal.
+
+Missions with 3 or more attempts are marked as `deeper_probe`
+opportunities.
+
+The planner supports structured follow-up instructions while leaving
+natural-language question generation to the future LLM layer.
+
+### Validation
+- 3 tests passed
+- Real supplied candidate data was used (`CAND-001`)
+- 8 questions were planned
+- 8 distinct curriculum days were covered
+- Interview remained incomplete before the eighth completion
+- Interview became complete after the required conditions were met
+- Structured follow-up behavior was verified
+
+### Files Created
+- `backend/interview_planner.py`
+- `tests/test_interview_planner.py`
+
+### Notes
+No supplied data files were modified.
+The FastAPI API was not modified.
+No LLM, vector database, or final feedback system was implemented in
+this step.
