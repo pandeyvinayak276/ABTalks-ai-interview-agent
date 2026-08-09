@@ -303,12 +303,111 @@ this step.
 
 ChatGPT
 
-### Purpose
+### Prompt
 
-Used ChatGPT to extend the deterministic interview planner into an
-adaptive interview system capable of adjusting interview length based
-on candidate performance and generating structured, candidate-specific
-feedback.
+Extend the deterministic interview planner and existing FastAPI interview
+flow into an adaptive interview system for the ABTalks AI Interview Agent.
+
+First inspect:
+
+- backend/main.py
+- backend/interview_planner.py
+- backend/data_loader.py
+- data/candidates.json
+- data/curriculum.json
+
+Keep the deterministic planner as the foundation and do not introduce an
+LLM for this step.
+
+Requirements:
+
+1. Keep the existing minimum requirement of 8 questions.
+
+2. Allow the interview to adapt its length based on candidate performance
+   and available candidate signals, with a maximum of 13 questions.
+
+3. A candidate demonstrating strong technical depth should be able to
+   receive additional questions instead of the interview always ending
+   at exactly 8 questions.
+
+4. Candidates with weaker or shorter answers should not automatically
+   receive unnecessary extra questions.
+
+5. Preserve the planner's existing guarantees:
+
+   - minimum 8 completed questions
+   - coverage of at least 4 curriculum days
+   - no accidental duplicate questions
+   - curriculum-grounded questions
+   - deterministic topic selection
+
+6. Make the interview progress turn-by-turn.
+
+7. Use answer analysis to classify candidate responses into structured
+   quality levels such as:
+
+   - strong
+   - good
+   - adequate
+   - brief
+
+   and use these signals as part of adaptive progression.
+
+8. Allow strong answers to create deeper follow-up opportunities while
+   keeping the planner responsible for the actual interview structure.
+
+9. Implement structured final feedback based on the actual completed
+   question-answer pairs.
+
+Feedback should summarize:
+
+- total questions completed
+- curriculum days/topics covered
+- answer quality distribution
+- strengths
+- weaker areas/gaps
+- recommended next steps
+
+10. Feedback must be based on actual interview turns and must not invent
+    candidate information.
+
+11. Preserve the existing FastAPI API contract:
+
+    {
+      "reply": "...",
+      "done": false
+    }
+
+    and on completion:
+
+    {
+      "reply": "...",
+      "done": true,
+      "feedback": {...}
+    }
+
+12. Do not add an LLM, vector database, or external memory system in this
+    step.
+
+13. Keep the supplied curriculum and candidate JSON files unchanged.
+
+14. Keep the implementation deterministic and easy to test.
+
+15. Add or update tests to verify that:
+
+    - the interview cannot finish before the minimum requirement
+    - a candidate can reach more than 8 questions
+    - the maximum question limit is respected
+    - strong answers can result in deeper questioning
+    - feedback reflects the actual completed answers
+    - the existing planner requirements continue to work
+
+After implementation, run the tests and report:
+
+- files created/modified
+- test results
+- adaptive interview behavior
+- any assumptions made
 
 ### Interaction
 
@@ -371,11 +470,92 @@ preserved.
 
 ChatGPT
 
-### Purpose
+### Prompt
 
-Used ChatGPT to integrate Breeth memory into the adaptive interview
-agent while keeping deterministic interview planning and candidate-facing
-question generation separate from memory retrieval.
+Implement Breeth memory integration for the ABTalks AI Interview Agent.
+
+First inspect the existing:
+
+- backend/main.py
+- backend/interview_planner.py
+- backend/data_loader.py
+- data/candidates.json
+- data/curriculum.json
+
+Integrate Breeth as an optional memory layer without changing the
+deterministic interview planner.
+
+Requirements:
+
+1. Create:
+
+- backend/breeth_memory.py
+
+2. Implement a small Breeth client that:
+
+- reads BREETH_API_KEY from environment variables
+- supports BREETH_BASE_URL
+- can store interview episodes
+- can search/retrieve relevant memories
+- fails safely when Breeth is unavailable
+
+3. Integrate Breeth into the adaptive interview flow in backend/main.py.
+
+When an interview starts:
+- optionally record the interview start event.
+
+After each candidate answer:
+- store the answer as an episode
+- search Breeth for relevant previous context using the current
+  interview topic/objective/difficulty and latest candidate answer
+- keep the retrieved memories as internal session context
+
+4. Breeth must NOT control interview planning.
+
+The deterministic InterviewPlanner must remain responsible for:
+
+- curriculum selection
+- question ordering
+- difficulty
+- follow-ups
+- completion
+- minimum/maximum question count
+
+5. Do NOT expose raw Breeth memories directly to the candidate.
+
+Retrieved memory must remain internal and must not be returned directly
+in the API response.
+
+6. Do not allow Breeth memory to generate questions.
+
+Candidate-facing questions must continue to come from the existing
+deterministic rendering system.
+
+7. Keep Breeth optional.
+
+If BREETH_API_KEY is missing or a Breeth request fails, the interview
+must continue normally without breaking the API.
+
+8. Keep the existing FastAPI API contract unchanged.
+
+9. Do not modify:
+
+- data/candidates.json
+- data/curriculum.json
+
+10. Keep the implementation minimal and isolated.
+
+After implementation, test the adaptive interview using CAND-001 and
+verify that:
+
+- the interview starts successfully
+- candidate answers can be stored
+- memory retrieval does not break the interview
+- the next question is generated normally
+- no raw Breeth memory is exposed in the candidate-facing response
+- the API does not produce 422 or 500 errors because of the memory layer
+
+Do not commit or push.
 
 ### Interaction
 
@@ -428,3 +608,138 @@ candidate-facing API response.
 - No `422` or `500` error occurred during the validation
 - The adaptive interview remained active after the tested turn
 
+## Entry 08 — LLM-Powered Natural-Language Question Generation
+
+### AI Tool
+
+Cursor
+
+### Prompt
+
+Implement LLM-powered natural-language question generation for the
+ABTalks AI Interview Agent.
+
+First inspect the existing repository, especially:
+
+- backend/main.py
+- backend/interview_planner.py
+- backend/breeth_memory.py
+- backend/data_loader.py
+- tests/
+- requirements.txt
+
+Keep the deterministic InterviewPlanner as the brain. It must continue
+deciding curriculum topic, objective, difficulty, ordering, follow-ups,
+and interview completion.
+
+The LLM should ONLY convert a PlannedQuestion into one natural-language,
+candidate-facing interview question.
+
+Create:
+
+- backend/llm_service.py
+- tests/test_llm_service.py
+
+Requirements:
+
+1. Add an LLM service abstraction that accepts the structured
+   PlannedQuestion and relevant candidate/context information.
+
+2. Configure the provider using environment variables:
+
+   - LLM_API_KEY
+   - LLM_BASE_URL
+   - LLM_MODEL
+
+   Never hardcode secrets.
+
+3. Integrate the LLM into the existing question-rendering flow in
+   backend/main.py.
+
+4. Preserve the existing deterministic question renderer as a fallback.
+
+   If the API key is missing, the provider fails, the request times out,
+   or the response is empty/invalid, the interview must automatically
+   continue using the deterministic template.
+
+5. Follow-up questions must use the structured FollowUpInstruction
+   produced by the planner. The LLM must not independently decide
+   whether a follow-up is required.
+
+6. Breeth memory may be supplied as internal context, but raw memory
+   must never be exposed to the candidate or override curriculum
+   planning.
+
+7. The LLM prompt should instruct the model to act as a professional
+   technical interviewer, ask exactly one question, remain grounded in
+   the curriculum objective, match the requested difficulty, encourage
+   reasoning/examples when appropriate, and never reveal internal
+   planning or context.
+
+8. Add mocked tests for:
+   - successful generation
+   - missing API key → fallback
+   - provider failure → fallback
+   - empty response → fallback
+
+9. Do not make real external LLM calls in automated tests.
+
+10. Existing planner tests must continue passing.
+
+11. Do not modify:
+   - data/curriculum.json
+   - data/candidates.json
+
+12. Do not rewrite:
+   - interview_planner.py
+   - data_loader.py
+   - breeth_memory.py
+
+   unless a tiny compatibility change is genuinely required.
+
+13. Do not add RAG, vector databases, multi-agent frameworks, voice,
+    authentication, or unrelated features.
+
+14. Do not commit or push.
+
+After implementation, run the test suite and report:
+- files created/modified
+- test results
+- whether any real external LLM API call was made.
+
+Keep the implementation minimal, reliable, and compatible with the
+existing FastAPI API contract.
+
+### Outcome
+
+Cursor implemented the LLM question-generation layer with deterministic
+fallback behavior.
+
+The planner remains responsible for interview structure, while the LLM
+is responsible only for natural-language question generation.
+
+### Implementation Impact
+
+Created:
+
+- backend/llm_service.py
+- tests/test_llm_service.py
+
+Modified:
+
+- backend/main.py
+
+The LLM service supports configurable environment variables and falls
+back to the existing deterministic renderer when the LLM is unavailable.
+
+### Validation
+
+- 10 automated tests passed.
+- Existing planner tests continued to pass.
+- LLM success and fallback behavior were tested with mocks.
+- Missing API key fallback was verified.
+- Provider failure fallback was verified.
+- Empty response fallback was verified.
+- Real FastAPI `/api/interview` testing successfully continued from one
+  question to the next.
+- No real external LLM API calls were made during automated testing.

@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.breeth_memory import BreethMemory
+from backend.llm_service import LLMQuestionService, QuestionGenerationContext
 from backend.data_loader import (
     Candidate as LoadedCandidate,
     CandidateMission,
@@ -147,6 +148,7 @@ app = FastAPI(title="ABTalks AI Interview Agent")
 sessions: dict[str, InterviewSession] = {}
 
 breeth = BreethMemory()
+llm_service = LLMQuestionService()
 
 try:
     interview_data: InterviewData = load_interview_data()
@@ -352,14 +354,10 @@ def _format_memory_context(memory: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _render_question(
+def _render_question_fallback(
     question: PlannedQuestion,
 ) -> str:
-    """
-    Convert a deterministic plan into a candidate-facing interview question.
-
-    Breeth memory is deliberately NOT rendered here.
-    """
+    """Deterministic template used when LLM generation is unavailable."""
 
     if question.is_follow_up and question.follow_up_instruction is not None:
         return (
@@ -388,6 +386,37 @@ def _render_question(
         f"Please explain your reasoning and, where possible, give a "
         f"concrete example."
     )
+
+
+def _render_question(
+    question: PlannedQuestion,
+    *,
+    candidate_name: str,
+    job_role: str,
+    years_experience: int,
+    memory_context: str | None = None,
+) -> str:
+    """
+    Convert a deterministic plan into a candidate-facing interview question.
+
+    Uses the LLM when configured; otherwise falls back to deterministic templates.
+    Breeth memory may inform generation internally but is never returned directly.
+    """
+
+    generated = llm_service.generate_question(
+        question,
+        QuestionGenerationContext(
+            candidate_name=candidate_name,
+            job_role=job_role,
+            years_experience=years_experience,
+            memory_context=memory_context,
+        ),
+    )
+
+    if generated:
+        return generated
+
+    return _render_question_fallback(question)
 
 
 # ---------------------------------------------------------------------------
@@ -844,7 +873,12 @@ def interview(
 
         # No Breeth search is needed before the candidate has answered.
         return InterviewResponse(
-            reply=_render_question(first_question),
+            reply=_render_question(
+                first_question,
+                candidate_name=loaded_candidate.member.name,
+                job_role=loaded_candidate.member.job_role,
+                years_experience=loaded_candidate.member.years_experience,
+            ),
             done=False,
         )
 
@@ -995,8 +1029,20 @@ def interview(
 
     session.current_question = next_question
 
+    combined_memory_context = (
+        "\n\n".join(session.memory_context)
+        if session.memory_context
+        else None
+    )
+
     return InterviewResponse(
-        reply=_render_question(next_question),
+        reply=_render_question(
+            next_question,
+            candidate_name=session.candidate.member.name,
+            job_role=session.candidate.member.job_role,
+            years_experience=session.candidate.member.years_experience,
+            memory_context=combined_memory_context,
+        ),
         done=False,
     )
 
