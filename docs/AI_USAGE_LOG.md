@@ -887,3 +887,217 @@ structure and the same strong-answer follow-up rule.
   cases were verified.
 - No real external LLM API calls were made during automated testing.
 
+## Entry 10 — Frontend Development & Backend Integration
+
+### AI Tool
+
+Bolt
+
+### Prompt
+
+Build ONLY the frontend UI for my existing ABTalks AI Interview Agent.
+
+IMPORTANT:
+
+- Do NOT modify or create any backend code.
+- Do NOT create authentication, login/signup, databases, or server logic.
+- Do NOT modify files outside the frontend.
+- The existing backend is FastAPI and already works.
+- Create the frontend inside the existing frontend/ directory.
+- The UI must communicate with the existing FastAPI API.
+
+BACKEND API:
+
+POST /api/interview
+
+To START an interview:
+{
+"sessionId": "unique-session-id",
+"candidate": {
+"member": {
+"id": "string",
+"name": "string",
+"jobRole": "string",
+"yearsExperience": 0,
+"education": "string",
+"status": "string"
+},
+"missions": [],
+"signals": {
+"commitDays": 0,
+"missionsCompleted": 0,
+"missionsFirstTry": 0
+}
+}
+}
+
+Response:
+{
+"reply": "question text",
+"done": false
+}
+
+To CONTINUE:
+{
+"sessionId": "same-session-id",
+"message": "candidate answer"
+}
+
+Response while continuing:
+{
+"reply": "next question",
+"done": false
+}
+
+Completion response:
+{
+"reply": "Thank you...",
+"done": true,
+"feedback": {
+"summary": "string",
+"strengths": ["string"],
+"gaps": ["string"],
+"next": ["string"]
+}
+}
+
+Also support GET /health if useful.
+
+PRODUCT:
+
+ABTalks — Adaptive AI Technical Interview Agent.
+
+Create a premium, modern, clean AI-product experience suitable for a
+hackathon demo.
+
+SCREENS:
+
+1. LANDING PAGE
+
+- ABTalks branding
+- Strong headline: "Technical interviews that adapt to you."
+- Short explanation of adaptive AI interviewing
+- Clear "Start Interview" CTA
+- Show three features: Adaptive, AI Evaluated, Personalized
+- Modern dark/AI aesthetic
+- Subtle animations
+- Professional, not flashy or childish
+
+2. CANDIDATE SETUP
+
+- Name
+- Candidate/member ID
+- Job role
+- Years of experience
+- Education
+- Status
+- Allow starting the interview
+- Generate a unique sessionId automatically
+- Use sensible default demo candidate values so the hackathon demo can start quickly
+- No login/signup
+
+3. INTERVIEW SCREEN
+
+- Show ABTalks branding
+- Show current question number/progress
+- Display AI interviewer question prominently
+- Large answer textarea
+- Submit Answer button
+- Loading state while waiting for API
+- Disable submission while loading
+- Error state if API fails
+- Preserve the same sessionId for every answer
+- Detect done=true and move to results
+- Make the interface feel like a real AI interview
+- Smooth transitions between questions
+- Do not invent AI responses; display the backend reply exactly
+
+4. RESULTS SCREEN
+
+- Show "Interview Complete"
+- Display feedback.summary
+- Display strengths as cards/list
+- Display gaps as cards/list
+- Display next steps
+- Add a polished assessment summary
+- Add "Start New Interview" button
+
+DESIGN:
+
+- Premium dark interface
+- Clean modern typography
+- Subtle glassmorphism
+- Soft gradients
+- Excellent spacing
+- Rounded cards
+- Professional AI/SaaS aesthetic
+- Responsive desktop and mobile layout
+- Subtle animations only
+- Avoid excessive neon effects
+- Avoid generic template-looking UI
+- Make it look like a polished startup product
+
+TECHNICAL:
+
+- Keep frontend code clean and componentized.
+- Use React if the frontend environment supports it.
+- Keep API base URL configurable with an environment variable.
+- Default API URL should be http://localhost:8000
+- Handle CORS/API errors gracefully.
+- Do not add unnecessary dependencies.
+- Do not change the FastAPI backend.
+- Make sure the application can be run locally easily.
+
+MOST IMPORTANT:
+
+The frontend is a client for the EXISTING FastAPI backend. Do not recreate
+backend logic in the frontend.
+
+Prioritize a polished working demo over unnecessary features.
+
+### Outcome
+
+Created the initial React/Vite frontend for the ABTalks AI Interview Agent
+using Bolt.
+
+The frontend includes the main product flow:
+
+- Landing page
+- Candidate setup
+- Interview interface
+- Results/feedback screen
+- API integration layer
+- Candidate/session state management
+- Responsive UI and polished AI-product styling
+
+The frontend was designed as a client for the existing FastAPI backend rather
+than recreating backend interview logic.
+
+### Implementation Impact
+
+Created and implemented the frontend inside the existing `frontend/`
+directory.
+
+The frontend communicates with the existing FastAPI `/api/interview`
+endpoint and uses the backend response to drive the interview experience.
+
+The UI supports the complete candidate journey from starting an interview
+through answering questions and viewing structured feedback after completion.
+
+The frontend API base URL is configurable, allowing the application to run
+against the local FastAPI backend.
+
+### Validation
+
+- React/Vite frontend successfully started locally.
+- FastAPI `/health` endpoint returned HTTP 200.
+- Frontend successfully communicated with the FastAPI backend.
+- Candidate setup and interview initialization were tested.
+- Multiple interview answers were successfully submitted.
+- Adaptive questions were displayed correctly.
+- Interview completion was detected using `done=true`.
+- Structured feedback was successfully displayed on the results screen.
+- The complete interview flow was tested successfully.
+- Frontend/backend integration issues encountered during local setup were
+  resolved.
+- The final implementation was synchronized with GitHub.
