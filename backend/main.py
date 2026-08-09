@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -146,12 +147,19 @@ class InterviewSession:
 
 
 app = FastAPI(title="ABTalks AI Interview Agent")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "").strip()
+
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+if FRONTEND_URL:
+    allowed_origins.append(FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
