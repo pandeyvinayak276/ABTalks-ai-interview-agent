@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.answer_evaluator import AnswerEvaluator
@@ -145,6 +146,16 @@ class InterviewSession:
 
 
 app = FastAPI(title="ABTalks AI Interview Agent")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 sessions: dict[str, InterviewSession] = {}
 

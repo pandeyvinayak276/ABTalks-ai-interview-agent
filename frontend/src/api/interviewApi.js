@@ -2,7 +2,7 @@
 // Base URL is configurable via VITE_API_BASE_URL (defaults to http://localhost:8000).
 
 const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") || "http://localhost:8000";
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") || "http://127.0.0.1:8000";
 
 export const FEEDBACK_SHAPE = null; // sentinel for docs; not used at runtime
 
