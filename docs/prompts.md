@@ -1101,3 +1101,21 @@ against the local FastAPI backend.
 - Frontend/backend integration issues encountered during local setup were
   resolved.
 - The final implementation was synchronized with GitHub.
+
+## Entry 11 — Deployment and Production Readiness
+
+### AI Tool
+ChatGPT
+
+### Interaction
+
+> My ABTalks AI Interview Agent is now working locally. It has a React/Vite frontend and a FastAPI backend, with the frontend calling the backend through an API base URL. I have very limited time before the hackathon submission and need to deploy the complete application quickly. I can use any deployment platform. Guide me step-by-step to deploy the FastAPI backend and React/Vite frontend, configure the production API URL, CORS, environment variables, and verify the live application. After deployment, also make sure React Router routes work correctly when a user directly opens or refreshes a route such as `/interview`, and ensure the existing sessionStorage-based interview session is not unnecessarily lost on browser refresh. Prioritize the fastest reliable solution and avoid unnecessary code changes.
+
+### Outcome
+The FastAPI backend and React/Vite frontend were deployed separately on Render. The frontend was configured to communicate with the deployed backend using the production API URL.
+
+A React Router refresh issue on the `/interview` route was identified and resolved using a Render SPA rewrite to `/index.html`.
+
+### Implementation Impact
+The ABTalks AI Interview Agent became accessible through public live URLs, with the frontend successfully connected to the deployed backend. React Router routes can also be refreshed without returning a server-side 404.
+
