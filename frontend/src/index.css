@@ -1,0 +1,226 @@
+:root {
+  /* Color system */
+  --bg-900: #060912;
+  --bg-800: #0b1020;
+  --bg-700: #111733;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-strong: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --text-primary: #f4f7ff;
+  --text-secondary: #aab2c8;
+  --text-muted: #6c7591;
+
+  --primary: #4f8cff;
+  --primary-600: #2f74ff;
+  --primary-700: #1f5fe0;
+  --accent: #34e2c5;
+  --accent-700: #14b89e;
+  --success: #2bd47a;
+  --warning: #f5b13d;
+  --error: #ff5a6e;
+
+  /* Gradients */
+  --grad-hero: radial-gradient(
+      1200px 600px at 80% -10%,
+      rgba(47, 116, 255, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 10% 10%,
+      rgba(52, 226, 197, 0.12),
+      transparent 55%
+    ),
+    linear-gradient(180deg, var(--bg-900), var(--bg-800));
+  --grad-accent: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  --grad-accent-soft: linear-gradient(
+    135deg,
+    rgba(47, 116, 255, 0.18) 0%,
+    rgba(52, 226, 197, 0.16) 100%
+  );
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-soft: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(47, 116, 255, 0.18),
+    0 20px 60px rgba(47, 116, 255, 0.18);
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-900);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+textarea,
+input,
+select {
+  font-family: inherit;
+}
+
+::selection {
+  background: rgba(47, 116, 255, 0.35);
+  color: #fff;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes floatGlow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 226, 197, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(52, 226, 197, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 226, 197, 0);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes dotPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.hide-on-mobile {
+  display: inline;
+}
+@media (max-width: 720px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: rgba(47, 116, 255, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(47, 116, 255, 0.18) !important;
+}
+select option {
+  background: var(--bg-800);
+  color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
