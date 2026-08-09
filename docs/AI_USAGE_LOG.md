@@ -364,3 +364,67 @@ The resulting architecture now separates:
 
 The existing FastAPI interview API and supplied data files were
 preserved.
+
+## Entry 07 — Breeth Memory Integration and Adaptive Interview Context
+
+### AI Tool
+
+ChatGPT
+
+### Purpose
+
+Used ChatGPT to integrate Breeth memory into the adaptive interview
+agent while keeping deterministic interview planning and candidate-facing
+question generation separate from memory retrieval.
+
+### Interaction
+
+ChatGPT helped implement and validate:
+
+- Breeth memory integration through `backend/breeth_memory.py`
+- retrieval of relevant interview memories using the candidate's latest answer
+- internal memory context that is not exposed directly to the candidate
+- integration of Breeth retrieval into the existing adaptive interview flow
+- preservation of deterministic curriculum-based question planning
+- adaptive interview progression and structured answer analysis
+- candidate-specific interview feedback
+
+### Outcome
+
+The interview agent can now retrieve relevant Breeth memories during an
+active interview and use them as internal context without directly exposing
+the retrieved memory to the candidate.
+
+The deterministic planner remains responsible for selecting curriculum
+topics and advancing the interview, while Breeth acts as a supporting
+memory layer.
+
+### Implementation Impact
+
+The implementation now separates:
+
+1. Candidate and curriculum data loading
+2. Deterministic interview planning
+3. Adaptive interview progression
+4. Breeth-based memory retrieval
+5. Candidate answer analysis
+6. Structured interview feedback
+
+Breeth retrieval is performed using the current curriculum context and,
+when available, the candidate's latest answer.
+
+Retrieved memory is kept internal and is not directly included in the
+candidate-facing API response.
+
+### Validation
+
+- Real supplied candidate data was used (`CAND-001`)
+- A new interview session was successfully initialized
+- The first curriculum-grounded question was generated successfully
+- A candidate answer was successfully processed
+- Breeth memory retrieval did not interrupt the interview flow
+- The next interview question was generated successfully
+- Retrieved memory was not leaked into the candidate-facing response
+- No `422` or `500` error occurred during the validation
+- The adaptive interview remained active after the tested turn
+
