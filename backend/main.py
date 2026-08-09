@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from backend.answer_evaluator import AnswerEvaluator
 from backend.breeth_memory import BreethMemory
 from backend.llm_service import LLMQuestionService, QuestionGenerationContext
 from backend.data_loader import (
@@ -149,6 +150,7 @@ sessions: dict[str, InterviewSession] = {}
 
 breeth = BreethMemory()
 llm_service = LLMQuestionService()
+answer_evaluator = AnswerEvaluator()
 
 try:
     interview_data: InterviewData = load_interview_data()
@@ -424,11 +426,11 @@ def _render_question(
 # ---------------------------------------------------------------------------
 
 
-def _analyze_answer(
+def _analyze_answer_fallback(
     answer: str,
     question: PlannedQuestion,
 ) -> dict[str, Any]:
-    """Extract deterministic quality signals from one candidate answer."""
+    """Deterministic heuristic analysis used when LLM evaluation is unavailable."""
 
     normalized = answer.lower().strip()
     word_count = len(answer.split())
@@ -504,6 +506,32 @@ def _analyze_answer(
         "question_number": question.question_number,
         "difficulty": question.difficulty,
     }
+
+
+def _analyze_answer(
+    answer: str,
+    question: PlannedQuestion,
+) -> dict[str, Any]:
+    """Evaluate one candidate answer, preferring LLM signals with heuristic fallback."""
+
+    word_count = len(answer.split())
+    evaluation = answer_evaluator.evaluate(answer, question)
+
+    if evaluation is not None:
+        return {
+            "word_count": word_count,
+            "matched_terms": evaluation.matched_terms,
+            "has_example": evaluation.has_example,
+            "has_reasoning": evaluation.has_reasoning,
+            "has_tradeoff": evaluation.has_tradeoff,
+            "quality": evaluation.quality,
+            "topic": question.curriculum_topic,
+            "objective": question.objective,
+            "question_number": question.question_number,
+            "difficulty": question.difficulty,
+        }
+
+    return _analyze_answer_fallback(answer, question)
 
 
 # ---------------------------------------------------------------------------

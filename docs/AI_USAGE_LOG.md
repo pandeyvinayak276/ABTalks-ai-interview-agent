@@ -743,3 +743,147 @@ back to the existing deterministic renderer when the LLM is unavailable.
 - Real FastAPI `/api/interview` testing successfully continued from one
   question to the next.
 - No real external LLM API calls were made during automated testing.
+
+## Entry 09 — LLM-Based Answer Evaluation
+
+### AI Tool
+
+Cursor
+
+### Prompt
+
+Implement LLM-based answer evaluation for the ABTalks AI Interview Agent.
+
+First inspect the current answer-analysis implementation and the existing
+repository before making changes.
+
+The current `_analyze_answer()` in `backend/main.py` is deterministic and
+heuristic-based. It provides:
+
+- quality: strong/good/adequate/brief
+- has_example
+- has_reasoning
+- has_tradeoff
+- matched_terms
+- word_count
+- question metadata
+
+The adaptive interview currently uses `quality == "strong"` to trigger
+follow-up questions, while the final feedback system uses the analysis
+fields to generate strengths, gaps, and next steps.
+
+Add an LLM evaluator while preserving this existing behavior.
+
+Create:
+
+- `backend/answer_evaluator.py`
+- `tests/test_answer_evaluator.py`
+
+Requirements:
+
+1. Preserve the current heuristic answer analysis as a deterministic
+   fallback without changing its existing thresholds or behavior.
+
+2. Add an AnswerEvaluator using the existing LLM configuration:
+
+   - `LLM_API_KEY`
+   - `LLM_BASE_URL`
+   - `LLM_MODEL`
+
+3. The LLM must return structured JSON containing:
+
+   - quality: strong/good/adequate/brief
+   - has_example
+   - has_reasoning
+   - has_tradeoff
+   - matched_terms
+
+4. Validate the LLM response and fall back to the deterministic
+   evaluator when:
+
+   - API key is missing
+   - provider request fails
+   - response is empty
+   - JSON is invalid
+   - quality is invalid
+   - required fields are invalid
+
+5. Compute deterministic fields locally:
+
+   - word_count
+   - topic
+   - objective
+   - question_number
+   - difficulty
+
+6. Integrate the evaluator into `_analyze_answer()` in `backend/main.py`.
+
+7. Preserve the existing analysis dictionary so that
+   `_should_add_follow_up()` and `_build_feedback()` continue working.
+
+8. Keep the existing follow-up rule unchanged:
+
+   `quality == "strong"`
+
+9. The LLM must not decide:
+
+   - curriculum topic
+   - question ordering
+   - interview completion
+   - interview target length
+   - structural follow-up eligibility
+
+10. Add mocked tests for successful evaluation, missing API key,
+    provider failure, invalid JSON, invalid quality, and valid structured
+    responses.
+
+11. Ensure all existing tests continue to pass.
+
+12. Do not make real external LLM calls during automated tests.
+
+13. Do not modify curriculum or candidate JSON files.
+
+14. Do not modify `interview_planner.py` or `breeth_memory.py`.
+
+15. Do not add unrelated features such as RAG, vector databases, voice,
+    or authentication.
+
+After implementation, run the complete test suite and report:
+
+- files created/modified
+- test results
+- whether any real external LLM API calls were made
+
+### Outcome
+
+Implemented an LLM-based answer evaluation layer while preserving the
+existing deterministic heuristic evaluator as a fallback.
+
+The LLM evaluator returns structured assessment data, while deterministic
+fields and existing interview metadata continue to be handled locally.
+
+### Implementation Impact
+
+Created:
+
+- `backend/answer_evaluator.py`
+- `tests/test_answer_evaluator.py`
+
+Modified:
+
+- `backend/main.py`
+
+The existing adaptive interview continues to use the same analysis
+structure and the same strong-answer follow-up rule.
+
+### Validation
+
+- 18 automated tests passed.
+- Answer evaluator tests passed.
+- Existing interview planner tests passed.
+- Existing LLM question-generation tests passed.
+- LLM success and fallback behavior were tested.
+- Missing API key, provider failure, invalid JSON, and invalid quality
+  cases were verified.
+- No real external LLM API calls were made during automated testing.
+
