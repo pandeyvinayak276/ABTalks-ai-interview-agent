@@ -474,7 +474,12 @@ function Footer() {
       }}
     >
       <span>ABTalks · Adaptive AI Interview Agent</span>
-      <span>Built for hackathon demo</span>
+      <span>
+        Built for hackathon demo ·{" "}
+        <a href="/download" style={{ color: "var(--accent)", textDecoration: "none" }}>
+          Download frontend
+        </a>
+      </span>
     </footer>
   );
 }

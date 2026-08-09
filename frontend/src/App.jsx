@@ -5,6 +5,7 @@ import Landing from "./pages/Landing.jsx";
 import Setup from "./pages/Setup.jsx";
 import Interview from "./pages/Interview.jsx";
 import Results from "./pages/Results.jsx";
+import DownloadPage from "./pages/Download.jsx";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/setup" element={<Setup />} />
           <Route path="/interview" element={<Interview />} />
           <Route path="/results" element={<Results />} />
+          <Route path="/download" element={<DownloadPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
