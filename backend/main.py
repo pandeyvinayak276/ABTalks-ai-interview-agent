@@ -110,9 +110,11 @@ class InterviewResponse(BaseModel):
     done: bool
     feedback: Feedback | None = None
 
+
 # ---------------------------------------------------------------------------
 # Internal interview state
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class InterviewTurn:
@@ -129,6 +131,10 @@ class InterviewSession:
     planner: InterviewPlanner
     current_question: PlannedQuestion | None = None
     turns: list[InterviewTurn] = field(default_factory=list)
+
+    # Internal Breeth context.
+    # This is never returned directly to the candidate.
+    memory_context: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -246,12 +252,20 @@ def _calculate_interview_target(candidate: LoadedCandidate) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Breeth
+# Breeth context
 # ---------------------------------------------------------------------------
 
 
-def _search_breeth(question: PlannedQuestion) -> dict[str, Any]:
-    """Retrieve relevant Breeth memory as context only."""
+def _search_breeth(
+    question: PlannedQuestion,
+    answer_context: str = "",
+) -> dict[str, Any]:
+    """
+    Retrieve Breeth memory as internal context only.
+
+    Breeth does not generate questions. The deterministic planner
+    remains responsible for question selection.
+    """
 
     if not breeth.enabled:
         return {
@@ -259,17 +273,24 @@ def _search_breeth(question: PlannedQuestion) -> dict[str, Any]:
             "results": [],
         }
 
-    query = (
-        f"Interview context for curriculum day {question.curriculum_day}. "
-        f"Topic: {question.curriculum_topic}. "
-        f"Objective: {question.objective}. "
-        f"Difficulty: {question.difficulty}."
-    )
+    query_parts = [
+        f"Interview context for curriculum day {question.curriculum_day}.",
+        f"Topic: {question.curriculum_topic}.",
+        f"Objective: {question.objective}.",
+        f"Difficulty: {question.difficulty}.",
+    ]
+
+    if answer_context.strip():
+        query_parts.append(
+            f"Candidate's latest answer: {answer_context.strip()}"
+        )
+
+    query = " ".join(query_parts)
 
     try:
         return breeth.search_memory(
             query=query,
-            limit=5,
+            limit=3,
         )
     except Exception as exc:
         return {
@@ -280,7 +301,7 @@ def _search_breeth(question: PlannedQuestion) -> dict[str, Any]:
 
 
 def _format_memory_context(memory: dict[str, Any]) -> str:
-    """Convert Breeth search output into compact readable context."""
+    """Convert Breeth search output into compact internal context."""
 
     if not memory.get("enabled"):
         return ""
@@ -333,12 +354,15 @@ def _format_memory_context(memory: dict[str, Any]) -> str:
 
 def _render_question(
     question: PlannedQuestion,
-    memory_context: str = "",
 ) -> str:
-    """Convert a deterministic plan into an interview question."""
+    """
+    Convert a deterministic plan into a candidate-facing interview question.
+
+    Breeth memory is deliberately NOT rendered here.
+    """
 
     if question.is_follow_up and question.follow_up_instruction is not None:
-        reply = (
+        return (
             f"Let's go deeper into your previous answer about "
             f"**{question.curriculum_topic}**. "
             f"{question.follow_up_instruction.instruction} "
@@ -346,8 +370,8 @@ def _render_question(
             f"and give a concrete example."
         )
 
-    elif question.difficulty == "deeper_probe":
-        reply = (
+    if question.difficulty == "deeper_probe":
+        return (
             f"Let's go a little deeper into your experience with "
             f"**{question.curriculum_topic}**. "
             f"How would you approach a problem related to "
@@ -357,22 +381,13 @@ def _render_question(
             f"engineering scenario."
         )
 
-    else:
-        reply = (
-            f"Let's discuss **{question.curriculum_topic}**. "
-            f"How would you approach a problem related to "
-            f"**{question.objective}**? "
-            f"Please explain your reasoning and, where possible, give a "
-            f"concrete example."
-        )
-
-    if memory_context:
-        reply += (
-            "\n\nRelevant context from interview memory:\n"
-            f"{memory_context}"
-        )
-
-    return reply
+    return (
+        f"Let's discuss **{question.curriculum_topic}**. "
+        f"How would you approach a problem related to "
+        f"**{question.objective}**? "
+        f"Please explain your reasoning and, where possible, give a "
+        f"concrete example."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -494,17 +509,9 @@ def _should_add_follow_up(
 def _build_feedback(
     session: InterviewSession,
 ) -> Feedback:
-    """Build candidate-specific feedback from the completed interview."""
+    """Build specific feedback from actual question-answer pairs."""
 
     turns = session.turns
-
-    if not turns:
-        return Feedback(
-            summary="No interview answers were recorded.",
-            strengths=[],
-            gaps=["No candidate responses were available for evaluation."],
-            next=["Complete the interview to receive technical feedback."],
-        )
 
     completed = len(turns)
 
@@ -514,17 +521,6 @@ def _build_feedback(
             for turn in turns
         }
     )
-
-    unique_topics = list(
-        dict.fromkeys(
-            turn.question.curriculum_topic
-            for turn in turns
-        )
-    )
-
-    # -----------------------------------------------------------------------
-    # Classify answers
-    # -----------------------------------------------------------------------
 
     strong_turns = [
         turn
@@ -568,44 +564,35 @@ def _build_feedback(
         if turn.analysis["has_tradeoff"]
     ]
 
-    # -----------------------------------------------------------------------
-    # Strengths
-    # -----------------------------------------------------------------------
-
     strengths: list[str] = []
+    gaps: list[str] = []
+    next_steps: list[str] = []
 
-    # Rank topics by answer quality.
-    topic_scores: dict[str, int] = {}
+    # -----------------------------------------------------------------------
+    # Identify strongest topics
+    # -----------------------------------------------------------------------
 
-    quality_scores = {
-        "strong": 4,
-        "good": 3,
-        "adequate": 2,
-        "brief": 1,
-    }
+    topic_strengths: dict[str, int] = {}
 
-    for turn in turns:
+    for turn in strong_turns:
         topic = turn.question.curriculum_topic
-        quality = turn.analysis["quality"]
-
-        topic_scores[topic] = (
-            topic_scores.get(topic, 0)
-            + quality_scores.get(quality, 0)
-        )
+        topic_strengths[topic] = topic_strengths.get(topic, 0) + 1
 
     strongest_topics = sorted(
-        topic_scores.items(),
+        topic_strengths.items(),
         key=lambda item: item[1],
         reverse=True,
     )
 
-    if strongest_topics and strongest_topics[0][1] >= 3:
+    if strongest_topics:
+        topic_names = [
+            topic
+            for topic, _ in strongest_topics[:3]
+        ]
+
         strengths.append(
-            "Strongest demonstrated areas included "
-            + ", ".join(
-                topic
-                for topic, _ in strongest_topics[:3]
-            )
+            "Strongest performance was demonstrated in "
+            + ", ".join(topic_names)
             + "."
         )
 
@@ -622,7 +609,7 @@ def _build_feedback(
     if example_turns:
         strengths.append(
             f"Concrete examples were used in {len(example_turns)} "
-            "answer(s), showing practical understanding."
+            "answer(s), strengthening the practical explanations."
         )
 
     if reasoning_turns:
@@ -637,58 +624,53 @@ def _build_feedback(
             f"{len(tradeoff_turns)} answer(s)."
         )
 
-    # Avoid an empty strengths section.
     if not strengths:
         strengths.append(
-            "The candidate demonstrated participation across "
-            f"{covered_days} curriculum area(s)."
+            "The candidate completed the adaptive interview across "
+            f"{covered_days} curriculum day(s)."
         )
 
     # -----------------------------------------------------------------------
-    # Gaps
+    # Identify weaker topics
     # -----------------------------------------------------------------------
-
-    gaps: list[str] = []
 
     weaker_topics: list[str] = []
 
-    for turn in turns:
-        if turn.analysis["quality"] in {"adequate", "brief"}:
-            topic = turn.question.curriculum_topic
+    for turn in adequate_turns + brief_turns:
+        topic = turn.question.curriculum_topic
 
-            if topic not in weaker_topics:
-                weaker_topics.append(topic)
+        if topic not in weaker_topics:
+            weaker_topics.append(topic)
 
     if weaker_topics:
         gaps.append(
-            "The areas that need the most development are "
+            "Some answers could be developed further, particularly around "
             + ", ".join(weaker_topics[:3])
             + "."
         )
 
-    if brief_turns:
-        gaps.append(
-            f"{len(brief_turns)} answer(s) were relatively brief; "
-            "more technical depth and concrete reasoning would strengthen them."
-        )
-
     if not example_turns:
         gaps.append(
-            "The candidate rarely used concrete engineering examples "
-            "to support technical explanations."
+            "The candidate would benefit from using more concrete "
+            "engineering examples."
         )
 
     if not reasoning_turns:
         gaps.append(
-            "Technical answers should explain the reasoning behind "
+            "Technical answers could explain the reasoning behind "
             "design decisions more explicitly."
         )
 
     if not tradeoff_turns:
         gaps.append(
-            "Architecture-level answers would benefit from discussing "
-            "trade-offs such as scalability, performance, reliability, "
-            "security, and cost."
+            "More discussion of engineering trade-offs would strengthen "
+            "architecture-level answers."
+        )
+
+    if brief_turns:
+        gaps.append(
+            f"{len(brief_turns)} answer(s) were relatively brief and "
+            "could benefit from greater technical depth."
         )
 
     if not gaps:
@@ -697,73 +679,54 @@ def _build_feedback(
         )
 
     # -----------------------------------------------------------------------
-    # Personalized next steps
+    # Recommended next steps
     # -----------------------------------------------------------------------
-
-    next_steps: list[str] = []
 
     if weaker_topics:
         next_steps.append(
-            "Deepen your understanding of "
+            "Deepen understanding of "
             + ", ".join(weaker_topics[:3])
-            + " through hands-on implementation and system-design practice."
-        )
-
-    if brief_turns:
-        next_steps.append(
-            "Practice giving structured technical answers using "
-            "concept → reasoning → example → trade-off."
+            + "."
         )
 
     if not example_turns:
         next_steps.append(
-            "Practice connecting theoretical concepts to realistic "
-            "engineering scenarios."
+            "Practice explaining technical concepts through realistic "
+            "engineering examples."
         )
 
     if not reasoning_turns:
         next_steps.append(
-            "When answering technical questions, explain why you would "
-            "choose an approach instead of only describing how it works."
+            "Practice explaining why a particular technical approach "
+            "was chosen, not only how it works."
         )
 
     if not tradeoff_turns:
         next_steps.append(
-            "Practice evaluating scalability, performance, reliability, "
-            "security, and cost when discussing system designs."
+            "Review scalability, performance, security, and other "
+            "trade-offs when designing systems."
         )
 
     if not next_steps:
         next_steps.append(
             "Continue practicing concise explanations of technical "
-            "design decisions using realistic engineering scenarios."
+            "design decisions."
         )
 
-    # Keep the feedback concise enough for an actual interview UI.
-    next_steps = next_steps[:4]
-    gaps = gaps[:4]
-    strengths = strengths[:5]
-
-    # -----------------------------------------------------------------------
-    # Overall performance label
-    # -----------------------------------------------------------------------
-
-    if strong_turns and len(strong_turns) >= len(turns) * 0.5:
-        overall_level = "strong technical performance"
-    elif len(strong_turns) + len(good_turns) >= len(turns) * 0.6:
-        overall_level = "solid technical performance"
-    elif brief_turns > len(turns) * 0.4:
-        overall_level = "developing technical performance"
-    else:
-        overall_level = "mixed technical performance"
+    unique_topics = list(
+        dict.fromkeys(
+            turn.question.curriculum_topic
+            for turn in turns
+        )
+    )
 
     summary = (
-        f"The candidate completed {completed} interview questions across "
-        f"{covered_days} curriculum area(s), demonstrating {overall_level}. "
-        f"Answer quality: {len(strong_turns)} strong, "
-        f"{len(good_turns)} good, "
-        f"{len(adequate_turns)} adequate, and "
-        f"{len(brief_turns)} brief."
+        f"The interview is complete after {completed} questions, "
+        f"covering {covered_days} curriculum day(s). "
+        f"The candidate demonstrated {len(strong_turns)} strong, "
+        f"{len(good_turns)} good, {len(adequate_turns)} adequate, "
+        f"and {len(brief_turns)} brief answer(s) across "
+        f"{len(unique_topics)} topic(s)."
     )
 
     return Feedback(
@@ -879,15 +842,9 @@ def interview(
             except Exception:
                 pass
 
-        memory = _search_breeth(first_question)
-
-        memory_context = _format_memory_context(memory)
-
+        # No Breeth search is needed before the candidate has answered.
         return InterviewResponse(
-            reply=_render_question(
-                first_question,
-                memory_context,
-            ),
+            reply=_render_question(first_question),
             done=False,
         )
 
@@ -951,6 +908,26 @@ def interview(
         except Exception:
             pass
 
+    # -----------------------------------------------------------------------
+    # Retrieve memory using the candidate's latest answer.
+    #
+    # This context stays internal and is never appended directly to the
+    # candidate-facing response.
+    # -----------------------------------------------------------------------
+
+    memory = _search_breeth(
+        current_question,
+        answer_context=message,
+    )
+
+    memory_context = _format_memory_context(memory)
+
+    if memory_context:
+        session.memory_context.append(memory_context)
+
+        # Keep only the most recent few context blocks in memory.
+        session.memory_context = session.memory_context[-3:]
+
     # Complete the current question.
     try:
         interview_done = session.planner.complete_question(
@@ -989,6 +966,9 @@ def interview(
         session.planner,
     ):
         try:
+            # Breeth context remains internal.
+            # The planner receives the candidate's actual answer as the
+            # follow-up context, preserving deterministic planning.
             session.planner.add_follow_up(
                 previous_question_number=current_question.question_number,
                 previous_answer_context=message,
@@ -1015,15 +995,8 @@ def interview(
 
     session.current_question = next_question
 
-    memory = _search_breeth(next_question)
-
-    memory_context = _format_memory_context(memory)
-
     return InterviewResponse(
-        reply=_render_question(
-            next_question,
-            memory_context,
-        ),
+        reply=_render_question(next_question),
         done=False,
     )
 
